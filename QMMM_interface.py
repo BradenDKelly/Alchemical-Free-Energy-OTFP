@@ -468,14 +468,6 @@ for counter, line in enumerate(f):
             buffer = []
             buffer.append( line )  
 
-#print("Number of solvent molecules included in the background was : ",numSolv) 
-#print("Number of solvent molecules removed from the background was: ", numRemoved - numOutside)
-#print("Number of solvent molecules outside of the cutoff was -----: ", numOutside)
-#f = open("overlapCount.txt", 'a')
-#line = "# in background: " + str(numSolv) + " # removed: " + str(numRemoved) + " # outside: " + str(numOutside) + " \n"
-#f.write(line)
-#f.close()
-
 ##############################################
 #
 #  Scale MM background charges
@@ -723,16 +715,6 @@ elif "bcc" in chargeMethod.lower():
         if "ATOM" in line:
             charges[index] = float( line.split()[8] ) 
             index += 1
-    
-        # if "@<TRIPOS>ATOM" in line:
-            # break
-    # index = 0
-    # for line in f:
-        # if "@<TRIPOS>BOND" in line:
-            # break
-        # charges[index] = float( line.split()[8] ) 
-        # print("line: ", line, " eight: ", line.split()[8])
-        # index += 1
     f.close()
     
 else:
