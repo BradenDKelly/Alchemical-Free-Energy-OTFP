@@ -8,7 +8,7 @@ by Braden Kelly and William R. Smith
 https://doi.org/10.26434/chemrxiv.10031789.v1
 
 Contains 
-    - Raw simulation results
-    - Topologies
+    - Raw simulation results 
+    - Topologies 
     - .gro files
     - python code for updating solute molecules partial charges
