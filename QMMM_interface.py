@@ -22,7 +22,8 @@
 #         - 6 cpu
 #         - 1000 mb memory
 #          This can be changed at line ~533/534
-#     HORTON (MBIS charges) is called from a virtual environment - you need to manually specify its location for your system - go to line ~660
+#     HORTON (MBIS charges) is called from a virtual environment - you need to manually specify its location for your system 
+#     - go to line ~660
 #     This assumes Gaussian is loaded or can be loaded via module load gaussian, and that it is G16
 #     This assumes the use of AMBER/18 - make changes on line ~673
 #
