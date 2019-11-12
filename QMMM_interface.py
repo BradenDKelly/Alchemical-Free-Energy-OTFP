@@ -16,23 +16,40 @@
 #
 ###################################################################################
 #
-#     This assumes the ghost particle is denoted as MOL 
-#     This assumes the solvent is denoted SOL
+#     This assumes the ghost particle is denoted as MOL in gromacs files i.e., g96/gro
+#     This assumes the solvent is denoted SOL in gromacs files i.e., g96/gro
 #     The call to gaussian assumes
 #         - 6 cpu
 #         - 1000 mb memory
-#          This can be changed at line ~525/526
-#     HORTON is called from a virtual environment - you need to manually specify its location for your system - go to line ~645
+#          This can be changed at line ~533/534
+#     HORTON (MBIS charges) is called from a virtual environment - you need to manually specify its location for your system - go to line ~660
 #     This assumes Gaussian is loaded or can be loaded via module load gaussian, and that it is G16
-#     This assumes the use of AMBER/18 - make changes on line ~665
+#     This assumes the use of AMBER/18 - make changes on line ~673
 #
 #     While ESP, Mulliken, Hirshfeld, CM5, DDEC6 charges can be called using this, I cannot guarantee they will work as I have not
 #         used them in a long time and they are not part of this publication. I have left the code in for the curious...
-#         - DDEC6 requires the program CHARGEMOL, and its location is hardcoded here on line ~646, update as necessary to fit your location
+#         - DDEC6 requires the program CHARGEMOL, and its location is hardcoded here on line ~654, update as necessary to fit your location
+#         - Update DDEC function call on line ~186 to modify f.write( '/home/bkelly08/Programs/chargemol_09_26_2017/atomic_densities/ \n' ) to your system
 #    It should not be assumed this will work for atoms other than C/H/N/O, although it should work for C/H/N/O/P/S and it should be as easy 
-#    to modify as adding additional atoms into the mass dictionary on ~ line 106. Also, modify atomDict on line 285
+#    to modify as adding additional atoms into the mass dictionary on ~ line 113. Also, modify atomDict on line 293
 ###################################################################################
-
+# 
+#                          INSTRUCTIONS FOR USE
+#     I have made a function "Make_itp_Template_4_newCharges():" which makes a dummy itp template
+#     make sure only one itp file is present in the folder, and that it is the solutes
+#     You can modify Make_itp_Template_4_newCharges(): to weed out other itp folders if you want
+#         - it assumes your itp is of the form NAME_STUFF.itp where the solute's name is NAME, and
+#         the name is followed by an underscore
+#
+#      A pdb file of the solute must be present in this directory if doing AM1BCC with OTFP
+#
+#      If you have questions, you can contact me at bkelly08@uoguelph.ca
+#      I do not deal with system specific dependencies, that is on you. There should be very few, 
+#      other than perhaps installing Gaussian/HORTON/Antechamber/Chargmol etc, but contact those folks for those issues.
+#      It isn't that I am lazy, I am simply useless when it comes to those types of issues.
+#      This is written in Python 3.x 
+#
+###################################################################################
 import argparse
 import sys
 import numpy as np
@@ -94,13 +111,15 @@ if input.h2o.lower() == "spce":
 elif input.h2o.lower() =="tip3p":
     q_oxygen = -0.8340
     q_hydrogen = 0.4170   
-elif "opc" in input.h2o.lower():
-    print("OPC is not enabled yet, please add water parameters in QMMM_Interface")  
+elif "opc3" in input.h2o.lower():
+    q_oxygen = -0.8952
+    q_hydrogen = 0.4476 
 else:
-    print("No water method was selected")    
+    print("Either no water method was selected or you are the ultimate Post-Modernist")   
+ 
 
 
-MOL          = 'MOL'
+MOL          = 'MOL'  # yeah... it seems trivial... it is. Just leave it be.
 
 def findMass( str ): # for a given atom type, return its mass. Used in COM calculation.
     massDict = {"H":1.0079, "O":15.998, "C":12.0107, "N": 14.0067, "P":30.973762, "S":32.0600}
@@ -127,7 +146,11 @@ def DIST(solv, sol, box):
     rij  = rij - box * np.rint ( rij/box )
     rij_mag = np.sqrt( np.sum( rij**2 ) )
     return rij_mag
-  
+
+# this is only used if partial charges in windows where Coulomb is already turned off.
+# If using a soft-core LJ potential, there will be overlap between solute/solvent in end windows
+# QM/MM DOES NOT LIKE OVERLAP. Given that the MM charges will be scaled to 0 here anyways, this should
+# be redundant code, but I leave it in.
 def AtomCOMCheck(soluteCoords, solventCoords, boxSize, overlap):
     accept = True
     for coordi in soluteCoords:
@@ -137,7 +160,7 @@ def AtomCOMCheck(soluteCoords, solventCoords, boxSize, overlap):
                 accept = False
     return accept
 
-def FindLength( file ):
+def FindLength( file ): # get the box length
     f = open(file, "r" )
     for line in f:
         if "BOX" in line:
@@ -152,7 +175,7 @@ def FindLength( file ):
 
     return length
 
-def GenerateHortonFile(name):
+def GenerateHortonFile(name): # Generate template for calling Horton and making MBIS charges
 
     f = open(name + ".py",'w')
 
@@ -171,7 +194,7 @@ def GenerateHortonFile(name):
 
     f.close()
 
-def GenerateDDEC6File():
+def GenerateDDEC6File(): # Generate the template for calling Chargemol and making DDEC6 charges
 
     f = open("job_control.txt",'w')
     f.write( '<atomic densities directory complete path> \n' )
@@ -203,8 +226,8 @@ def GenerateZMatrixFile(filename):
 
     f = open("zMatrixInput.dat",'w')
     f.write( ' %chk={0}.chk \n '.format(molname) )
-    f.write( '%mem=6000MB\n' )
-    f.write( '%nproc=8 \n' )
+    f.write( '%mem=1000MB\n' )
+    f.write( '%nproc=12 \n' )
     f.write( '#P {0}/{1} geom=connectivity guess=mix CHARGE DENSITY=CURRENT \n'.format(QMtheory,QMbasis) )    # PW91PW91
     f.write( '# scf=(fermi,conver=8,maxcycle=400) density=current output=wfx \n\n' )
     f.write( 'Truly witty remark \n\n' )
@@ -248,7 +271,7 @@ def PrintXYZ(atomNames, coords, filename):
     f.write(' \n')
     
     f.close()
-def GetDDEC6ChargesFromFile():
+def GetDDEC6ChargesFromFile(): # Scan the output file, retrieve partial charges for DDEC6
 
     f = open("DDEC6_even_tempered_net_atomic_charges.xyz",'r')
 
@@ -281,6 +304,48 @@ def MakeMoleculeList(filename = "aqueous.g96"):
     f.close()
     molList = np.array( molList )  
     return molList 
+
+def Make_itp_Template_4_newCharges(): # makes itp template
+    
+    files = os.listdir(os.getcwd())
+
+    for file in files:
+
+        if file.endswith(".itp") and "temp" not in file.lower(): 
+            print("Oh yeah, we are triggered now!")
+            # this is the droid we were looking for #
+            fi=open(file,'r')
+            fo = open(file.split("_")[0] + "_TEMP_GMX.itp",'w') # this assumes solute name is first part 
+                                                                # of file name, and it is followed by _
+
+            for line in fi:
+                if '[ atoms ]' in line: 
+                    fo.write(line)
+                    break
+                fo.write(line)
+
+            for line in fi:
+                if '[ bonds ]' in line:
+                    fo.write(line) 
+                    break
+
+                if len(line.split(';')[0]) > 5:
+                    atomName = line.split()[4]
+                    dummyName = atomName + "C"
+                    l = line.split()
+
+                    lineout = '     {}   {}   {}    {}     {}     {}     {}     {} \n'.format(l[0], l[1],l[2],l[3],l[4],l[5],dummyName,l[7])
+                else:
+                    lineout = line
+                fo.write(lineout)
+
+            for line in fi:
+                fo.write(line)
+
+            fi.close()
+            fo.close()
+
+
 
 atomDict = {"H":1,"He":2,"Li":3,"Be":4, "B":5,"C":6,"N":7,"O":8,"F":9,"Ne":10,"Na":11,"Mg":12,"Al":13,"Si":14,"P":15,"S":16,"Cl":17,"Ar":18,"K":19,"Ca":20} # needed for am1bcc
     
@@ -487,6 +552,7 @@ oldtemplate = molname + '_GMX.itp'
 f = open(oldtemplate,'r')
 
 #Calculate charge on molecule, this is mostly for the case of ions, which are not part of this paper.
+# This avoids hardcoding the charge on each molecule.
 sumQQ = 0
 for line in f:
     if '[ atoms ]' in line: 
@@ -522,7 +588,7 @@ if chargeMethod.lower() != "ddec6" and chargeMethod.lower() != "bcc":
     f.write(' \n')
 
     if background == True and chargeMethod == "resp":
-        f.write('#T {0}/{1} pop={2} Charge iop(6/33=2) iop(6/42=6) iop(6/50=1)\n'.format(QMtheory, QMbasis,pop))
+        f.write('#T {0}/{1} pop={2} Charge density=current iop(6/33=2) iop(6/42=6) iop(6/50=1)\n'.format(QMtheory, QMbasis,pop))
     elif background == True:
         f.write('#T {0}/{1} pop={2} Charge density=current \n'.format(QMtheory, QMbasis,pop))
     else:
@@ -768,6 +834,7 @@ else:
 
                 if "Q-H" not in line:
                     gout.append(line)
+        # Iterative Hirshfeld
         elif 'hi' in chargeMethod.lower() or 'ci' in chargeMethod.lower():
             for line in filename:
                 if ('Iterated Hirshfeld charges, spin densities' in line):
@@ -835,3 +902,10 @@ file.close()
 #    before updating the charges again.
 #
 ######################################################
+#
+#               A Quote to end with: 
+#
+#  "I feel more like I do now than I did when I first got here."
+#                - anonymous man in a bar in Utah
+#
+#######################################################
