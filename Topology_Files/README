@@ -1,0 +1,31 @@
+This folder is meant to supplement the paper 
+
+Alchemical hydration free-energy calculations using molecular dynamics with explicit
+polarization and induced polarity decoupling: an OTFP approach
+by Braden D. Kelly and William R. Smith
+
+ https://doi.org/10.26434/chemrxiv.10031789.v1
+
+These folders contain parameter and basic geometry files for each solute molecule.
+
+The partial charges in them are dummy values. Most likely HF/6-31G* RESP or AM1-BCC.
+
+These files are not meant to supply the user with partial charges, only FF parameters.
+
+If you have questions, after thinking at least semi-carefully about it, don't hesitate
+to contact myself, Braden Kelly at bkelly08@uoguelph.ca. If you know any good jokes, feel
+free to add them in the email. 
+
+The parameter files were generated using Antechamber and acpype.
+
+mobley_9534740 is (2R,3R,4S,5S,6R)-6 -(hydroxymethyl)tetrahydropyran-2,3,4,5-tetrol 
+mobley_8052240 is 1-amino-9,10-anthracenedione
+mobley_6198745 is  2,3-diacetoxypropyl acetate
+
+There are some older molecular names that we used... call me old fashioned.
+(Ben-Naim used the older names too)
+
+Triethylamine is  N,N-diethylethanamine  in the FreeSolv database
+Diethylamine is  N-ethylethanamine in the FreeSolv database
+ 
+
