@@ -111,13 +111,11 @@ if input.h2o.lower() == "spce":
 elif input.h2o.lower() =="tip3p":
     q_oxygen = -0.8340
     q_hydrogen = 0.4170   
-elif "opc3" in input.h2o.lower():
+elif "opc3" in input.h2o.lower(): # I have not technically tried OPC3 yet, but it should work fine.
     q_oxygen = -0.8952
     q_hydrogen = 0.4476 
 else:
     print("Either no water method was selected or you are the ultimate Post-Modernist")   
- 
-
 
 MOL          = 'MOL'  # yeah... it seems trivial... it is. Just leave it be.
 
@@ -870,6 +868,8 @@ else:
 #    First copy template.itp (has dummy charge names
 #               for easy replacement
 ######################################################
+Make_itp_Template_4_newCharges() # molname + '_TEMP_GMX.itp'
+
 gromacs_itp = molname + '_DUMMY_GMX.itp'
 template_itp= molname + '_TEMP_GMX.itp'
 copyfile(template_itp, gromacs_itp) # take copy template and call it name stored as gromacs_itp
