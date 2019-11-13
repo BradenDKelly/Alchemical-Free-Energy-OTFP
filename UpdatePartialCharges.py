@@ -365,6 +365,8 @@ except FileNotFoundError:
 """ We can find the dummy holder names for the charges in the dummy template
 We scan the dummy topology until we find "name"_dummy, then scan the strings where the charges should be
 """
+Make_itp_Template_4_newCharges() # make molname + '_TEMP_GMX.itp'
+
 dummytemplate = molname + '_TEMP_GMX.itp'
 
 f = open(dummytemplate,'r')
@@ -869,7 +871,6 @@ else:
 #    First copy template.itp (has dummy charge names
 #               for easy replacement
 ######################################################
-Make_itp_Template_4_newCharges() # molname + '_TEMP_GMX.itp'
 
 gromacs_itp = molname + '_DUMMY_GMX.itp'
 template_itp= molname + '_TEMP_GMX.itp'
