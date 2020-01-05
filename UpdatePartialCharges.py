@@ -13,6 +13,7 @@
 #    It is recommended that editor preferences be set to the Hello Kitty style.
 #
 #    Updated April 2019 by Braden Kelly to scale background charges
+#    Braden Kelly Fixed Periodic Boundary Conditions placed on solvent November 27,2019
 #
 ###################################################################################
 #
@@ -141,9 +142,14 @@ def COM(xyz, masses, num): # calculate center of mass of a molecule
 
 # distance between two points using mirror image separation
 def DIST(solv, sol, box):
-    rij = np.array([solv[0] - sol[0],solv[1] - sol[1],solv[2] - sol[2]  ])
-    rij  = rij - box * np.rint ( rij/box )
+    rij = abs( np.array([solv[0] - sol[0],solv[1] - sol[1],solv[2] - sol[2]  ]) )
+
+    rij[0] = min(rij[0],box-rij[0])
+    rij[1] = min(rij[1],box-rij[1])
+    rij[2] = min(rij[2],box-rij[2])
+    #rij  = rij - box * np.rint ( rij/box )
     rij_mag = np.sqrt( np.sum( rij**2 ) )
+
     return rij_mag
 
 # this is only used if partial charges in windows where Coulomb is already turned off.
@@ -173,6 +179,32 @@ def FindLength( file ): # get the box length
             print("couldn't find box length")
 
     return length
+
+# Get the nearest mirror image of all atoms in the water molecule,
+# if mirror is closer than actual, use mirror instead
+def PBCSolvent(solCOM,solvCOM,tempCoords, boxSize):
+    dx = 0.0
+    dy = 0.0
+    dz = 0.0
+    
+    rij = np.array([solvCOM[0] - solCOM[0],solvCOM[1] - solCOM[1],solvCOM[2] - solCOM[2]  ])
+    
+    if abs(rij[0]) > boxSize / 2.0:
+        if rij[0] < 0: dx = boxSize
+        if rij[0] > 0: dx = - boxSize
+    if abs(rij[1]) > boxSize / 2.0:
+        if rij[1] < 0: dy = boxSize
+        if rij[1] > 0: dy = - boxSize
+    if abs(rij[2]) > boxSize / 2.0:
+        if rij[2] < 0: dz = boxSize
+        if rij[2] > 0: dz = - boxSize
+
+    for i in range(len(tempCoords)):
+        tempCoords[i][0] += dx
+        tempCoords[i][1] += dy 
+        tempCoords[i][2] += dz
+        
+    return tempCoords
 
 def GenerateHortonFile(name): # Generate template for calling Horton and making MBIS charges
 
@@ -225,7 +257,7 @@ def GenerateZMatrixFile(filename):
 
     f = open("zMatrixInput.dat",'w')
     f.write( ' %chk={0}.chk \n '.format(molname) )
-    f.write( '%mem=1000MB\n' )
+    f.write( '%mem=3000MB\n' )
     f.write( '%nproc=12 \n' )
     f.write( '#P {0}/{1} geom=connectivity guess=mix CHARGE DENSITY=CURRENT \n'.format(QMtheory,QMbasis) )    # PW91PW91
     f.write( '# scf=(fermi,conver=8,maxcycle=400) density=current output=wfx \n\n' )
@@ -313,8 +345,13 @@ def Make_itp_Template_4_newCharges(): # makes itp template
         if file.endswith(".itp") and "temp" not in file.lower(): 
             print("Oh yeah, we are triggered now!")
             # this is the droid we were looking for #
+            if "mobley_" in file:
+                fname = "mobley_" + str( file.split("_")[1] )
+            else:
+                fname = file.split("_")[0]
+
             fi=open(file,'r')
-            fo = open(file.split("_")[0] + "_TEMP_GMX.itp",'w') # this assumes solute name is first part 
+            fo = open(fname + "_TEMP_GMX.itp",'w') # this assumes solute name is first part 
                                                                 # of file name, and it is followed by _
 
             for line in fi:
@@ -365,8 +402,6 @@ except FileNotFoundError:
 """ We can find the dummy holder names for the charges in the dummy template
 We scan the dummy topology until we find "name"_dummy, then scan the strings where the charges should be
 """
-Make_itp_Template_4_newCharges() # make molname + '_TEMP_GMX.itp'
-
 dummytemplate = molname + '_TEMP_GMX.itp'
 
 f = open(dummytemplate,'r')
@@ -446,7 +481,6 @@ Stop once all atoms of a solvent molecule are read in.
 Calculate COM
 Calculate distance between molecule COM and solute molecule COM
 if within cutoff, save coords and charges to send to gaussian
-
 Continue now with the next solvent molecule
 """
 
@@ -504,33 +538,16 @@ for counter, line in enumerate(f):
             tempMass   = np.asarray( tempMass )
             solvCOM = COM( numpArray, tempMass, len( tempMass ) )
             dist = DIST( solvCOM, solCOM, BoxSize )
-
-            if int(Lambda) > 20:
-                accept = False
-                if dist < cutoff and dist < COMoverlap:
-                    accept = AtomCOMCheck(coords,numpArray, BoxSize, overlap)
-
-                elif dist < cutoff and dist > COMoverlap:
-                    accept = True #numRemoved += 1
-                else:
-                    numOutside += 1
-                                        
-                if accept: #dist < cutoff and dist > overlap:  # protect against overlaps at nearly decouples states
-                    numSolv += 1
-                    solCoords += tempCoords
-                    chargeGroup += tempCharge
-                    elementType += tempAtomType                    
-                else:
-                    numRemoved += 1
-            else:
-                if dist < cutoff:
-                    numSolv += 1
-                    solCoords += tempCoords
-                    chargeGroup += tempCharge 
-                    elementType += tempAtomType
-                else: 
-                    numOutside += 1
-                
+            if dist < cutoff: # is solvent or its mirror image within the cutoff
+                pbcCoords = PBCSolvent(solCOM,solvCOM, tempCoords, BoxSize)
+                solCoords += pbcCoords
+                chargeGroup += tempCharge
+                elementType += tempAtomType 
+                if pbcCoords != tempCoords:
+                    print("pbcCoords: ", pbcCoords)
+                    print("==================================================")
+                    print("tempCoords: ", tempCoords)
+ 
             buffer = []
             buffer.append( line )  
 
@@ -583,8 +600,8 @@ if chargeMethod.lower() != "ddec6" and chargeMethod.lower() != "bcc":
 
     f = open(duplicate,'w')
 
-    f.write('%mem=1000mb\n')
-    f.write('%nproc=6\n')
+    f.write('%mem=3000mb\n')
+    f.write('%nproc=12\n')
     f.write('%chk=molecule\n')
     f.write(' \n')
 
@@ -871,6 +888,8 @@ else:
 #    First copy template.itp (has dummy charge names
 #               for easy replacement
 ######################################################
+print("Making itp template")
+Make_itp_Template_4_newCharges() # molname + '_TEMP_GMX.itp'
 
 gromacs_itp = molname + '_DUMMY_GMX.itp'
 template_itp= molname + '_TEMP_GMX.itp'
