@@ -34,7 +34,7 @@ print(' --------  the first 3 columns of data are skipped in the GROMACS xvg fil
 print(' --------  file name to read from starts with {}'.format(fileNameIn) )
 print(' --------  file name to output to starts with {}'.format(fileNameOut) )
 print("** All of these presets can be changed at the top of the IPolQ.py file.**")
-print("** This currently works for TI, FEP(IEXP,DEXP), BAR and MBAR. Hold onto your hat when you use MBAR though.**")
+print("** This currently works for TI, FEP(IEXP,DEXP), and BAR.**")
 
 data = np.zeros((nFile,nRows,nFile))
 data_cat = np.zeros((nFile,nRows,nFile+skipColumn))
